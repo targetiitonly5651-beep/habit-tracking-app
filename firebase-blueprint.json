@@ -1,0 +1,178 @@
+{
+  "entities": {
+    "UserSettings": {
+      "title": "UserSettings",
+      "description": "User preferences including global daily reminder settings",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Unique user ID matching authenticated user UID"
+        },
+        "dailyReminderEnabled": {
+          "type": "boolean",
+          "description": "Whether daily overall reminder notification is active"
+        },
+        "dailyReminderTime": {
+          "type": "string",
+          "description": "Time of day in HH:mm for daily reminder"
+        },
+        "userName": {
+          "type": "string",
+          "description": "Display name of the user"
+        },
+        "email": {
+          "type": "string",
+          "description": "Google user email address"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of settings initialization"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of last settings update"
+        }
+      },
+      "required": ["userId", "dailyReminderEnabled", "dailyReminderTime", "createdAt"]
+    },
+    "Habit": {
+      "title": "Habit",
+      "description": "User habit tracking definition and schedule",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Owner user ID matching request.auth.uid"
+        },
+        "title": {
+          "type": "string",
+          "description": "Name or title of the habit"
+        },
+        "description": {
+          "type": "string",
+          "description": "Optional description or motivation for the habit"
+        },
+        "category": {
+          "type": "string",
+          "description": "Category e.g. Health, Productivity, Fitness, Mindfulness, Learning"
+        },
+        "colorHex": {
+          "type": "string",
+          "description": "Hex color code for UI cards and badges"
+        },
+        "iconName": {
+          "type": "string",
+          "description": "Icon key representing the habit activity"
+        },
+        "frequency": {
+          "type": "string",
+          "description": "Target days e.g. DAILY, WEEKDAYS, WEEKENDS"
+        },
+        "targetPerDay": {
+          "type": "integer",
+          "description": "Daily numerical goal amount"
+        },
+        "unit": {
+          "type": "string",
+          "description": "Unit of measurement (times, min, glasses, pages)"
+        },
+        "reminderTime": {
+          "type": "string",
+          "description": "Optional specific habit reminder time in HH:mm"
+        },
+        "reminderEnabled": {
+          "type": "boolean",
+          "description": "Whether habit specific reminder is enabled"
+        },
+        "isArchived": {
+          "type": "boolean",
+          "description": "Archived status for inactive habits"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when habit was created"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when habit was last modified"
+        }
+      },
+      "required": [
+        "userId",
+        "title",
+        "category",
+        "colorHex",
+        "iconName",
+        "targetPerDay",
+        "isArchived",
+        "createdAt"
+      ]
+    },
+    "HabitLog": {
+      "title": "HabitLog",
+      "description": "Daily completion log record for a habit",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "description": "Owner user ID matching request.auth.uid"
+        },
+        "habitId": {
+          "type": "string",
+          "description": "Referenced Habit document ID"
+        },
+        "date": {
+          "type": "string",
+          "description": "ISO date string YYYY-MM-DD for the check-in date"
+        },
+        "value": {
+          "type": "integer",
+          "description": "Completed amount toward daily target"
+        },
+        "isCompleted": {
+          "type": "boolean",
+          "description": "True if the daily target goal was achieved"
+        },
+        "note": {
+          "type": "string",
+          "description": "Optional reflection or journal note"
+        },
+        "completedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Timestamp when completed"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of log entry"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp of log update"
+        }
+      },
+      "required": ["userId", "habitId", "date", "value", "isCompleted", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserSettings" },
+      "description": "User profile and reminder settings"
+    },
+    "/users/{userId}/habits/{habitId}": {
+      "schema": { "$ref": "#/entities/Habit" },
+      "description": "User habits collection"
+    },
+    "/users/{userId}/habit_logs/{logId}": {
+      "schema": { "$ref": "#/entities/HabitLog" },
+      "description": "Daily completion logs and analytics records"
+    }
+  }
+}

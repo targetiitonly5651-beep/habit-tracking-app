@@ -1,0 +1,130 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Safety Net: default-deny all unspecified documents
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidUserSettings(data) {
+      return data.dailyReminderEnabled is bool &&
+             data.dailyReminderTime is string && data.dailyReminderTime.size() >= 3 && data.dailyReminderTime.size() <= 10 &&
+             (!('userName' in data) || data.userName == null || (data.userName is string && data.userName.size() <= 100)) &&
+             (!('email' in data) || data.email == null || (data.email is string && data.email.size() <= 150));
+    }
+
+    function isValidHabit(data) {
+      return data.title is string && data.title.size() >= 1 && data.title.size() <= 100 &&
+             (!('description' in data) || data.description == null || (data.description is string && data.description.size() <= 500)) &&
+             data.category is string && data.category.size() >= 1 && data.category.size() <= 50 &&
+             data.colorHex is string && data.colorHex.size() >= 4 && data.colorHex.size() <= 10 &&
+             data.iconName is string && data.iconName.size() >= 1 && data.iconName.size() <= 50 &&
+             (!('frequency' in data) || data.frequency == null || (data.frequency is string && data.frequency.size() <= 20)) &&
+             data.targetPerDay is int && data.targetPerDay >= 1 && data.targetPerDay <= 10000 &&
+             (!('unit' in data) || data.unit == null || (data.unit is string && data.unit.size() <= 30)) &&
+             (!('reminderTime' in data) || data.reminderTime == null || (data.reminderTime is string && data.reminderTime.size() <= 10)) &&
+             (!('reminderEnabled' in data) || data.reminderEnabled == null || data.reminderEnabled is bool) &&
+             data.isArchived is bool;
+    }
+
+    function isValidHabitLog(data) {
+      return data.habitId is string && data.habitId.size() >= 1 && data.habitId.size() <= 128 &&
+             data.date is string && data.date.size() == 10 &&
+             data.value is int && data.value >= 0 && data.value <= 10000 &&
+             data.isCompleted is bool &&
+             (!('note' in data) || data.note == null || (data.note is string && data.note.size() <= 500)) &&
+             (!('completedAt' in data) || data.completedAt == null || data.completedAt is timestamp);
+    }
+
+    // User settings root collection
+    match /users/{userId} {
+      allow get: if isSignedIn() && request.auth.uid == userId;
+
+      allow create: if isSignedIn() &&
+                       request.auth.uid == userId &&
+                       incoming().userId == request.auth.uid &&
+                       incoming().keys().hasAll(['userId', 'dailyReminderEnabled', 'dailyReminderTime', 'createdAt']) &&
+                       incoming().keys().hasOnly(['userId', 'dailyReminderEnabled', 'dailyReminderTime', 'userName', 'email', 'createdAt', 'updatedAt']) &&
+                       incoming().createdAt is timestamp &&
+                       incoming().createdAt <= request.time &&
+                       isValidUserSettings(incoming());
+
+      allow update: if isSignedIn() &&
+                       request.auth.uid == userId &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       (!('updatedAt' in incoming()) || (incoming().updatedAt is timestamp && incoming().updatedAt <= request.time)) &&
+                       isValidUserSettings(incoming()) &&
+                       incoming().diff(existing()).affectedKeys().hasOnly(['dailyReminderEnabled', 'dailyReminderTime', 'userName', 'email', 'updatedAt']);
+
+      allow delete: if isSignedIn() && request.auth.uid == userId;
+
+      // User Habits Subcollection
+      match /habits/{habitId} {
+        allow get, list: if isSignedIn() && request.auth.uid == userId;
+
+        allow create: if isSignedIn() &&
+                         request.auth.uid == userId &&
+                         incoming().userId == request.auth.uid &&
+                         incoming().keys().hasAll(['userId', 'title', 'category', 'colorHex', 'iconName', 'targetPerDay', 'isArchived', 'createdAt']) &&
+                         incoming().keys().hasOnly(['userId', 'title', 'description', 'category', 'colorHex', 'iconName', 'frequency', 'targetPerDay', 'unit', 'reminderTime', 'reminderEnabled', 'isArchived', 'createdAt', 'updatedAt']) &&
+                         incoming().createdAt is timestamp &&
+                         incoming().createdAt <= request.time &&
+                         isValidHabit(incoming());
+
+        allow update: if isSignedIn() &&
+                         request.auth.uid == userId &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         (!('updatedAt' in incoming()) || (incoming().updatedAt is timestamp && incoming().updatedAt <= request.time)) &&
+                         isValidHabit(incoming()) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['title', 'description', 'category', 'colorHex', 'iconName', 'frequency', 'targetPerDay', 'unit', 'reminderTime', 'reminderEnabled', 'isArchived', 'updatedAt']);
+
+        allow delete: if isSignedIn() && request.auth.uid == userId;
+      }
+
+      // User Habit Logs Subcollection
+      match /habit_logs/{logId} {
+        allow get, list: if isSignedIn() && request.auth.uid == userId;
+
+        allow create: if isSignedIn() &&
+                         request.auth.uid == userId &&
+                         incoming().userId == request.auth.uid &&
+                         incoming().keys().hasAll(['userId', 'habitId', 'date', 'value', 'isCompleted', 'createdAt']) &&
+                         incoming().keys().hasOnly(['userId', 'habitId', 'date', 'value', 'isCompleted', 'note', 'completedAt', 'createdAt', 'updatedAt']) &&
+                         incoming().createdAt is timestamp &&
+                         incoming().createdAt <= request.time &&
+                         isValidHabitLog(incoming());
+
+        allow update: if isSignedIn() &&
+                         request.auth.uid == userId &&
+                         incoming().userId == existing().userId &&
+                         incoming().habitId == existing().habitId &&
+                         incoming().date == existing().date &&
+                         incoming().createdAt == existing().createdAt &&
+                         (!('updatedAt' in incoming()) || (incoming().updatedAt is timestamp && incoming().updatedAt <= request.time)) &&
+                         isValidHabitLog(incoming()) &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['value', 'isCompleted', 'note', 'completedAt', 'updatedAt']);
+
+        allow delete: if isSignedIn() && request.auth.uid == userId;
+      }
+    }
+  }
+}
